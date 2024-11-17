@@ -1,0 +1,25 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Helper function to check admin status
+    function isAdmin() {
+      return request.auth != null &&
+        firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // Block access to all files by default
+    match /{allPaths=**} {
+      allow read: if false;
+      allow write: if false;
+    }
+    
+    // Allow access to product images
+    match /products/{productId}/{imageFile} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin() &&
+        request.resource.size < 5 * 1024 * 1024 && // 5MB max
+        request.resource.contentType.matches('image/.*');
+    }
+  }
+}
